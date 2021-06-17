@@ -1,0 +1,93 @@
+name: Nightly Brexx/370
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Scheduling
+    runs-on: [ubuntu-latest]
+    container: mainframed767/tk4-jcc:latest
+    steps:
+
+    - name: Get current date
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y%m%d')"
+    - name: Set Release Variable
+      id: version_data
+      run: |
+       echo "RELEASE_VERSION=NIGHTLY" >> $GITHUB_ENV
+       echo ::set-output name=FILENAME_PATH::/brexx370/build/BREXX370.NIGHTLY.zip
+       echo ::set-output name=FILENAME::BREXX370.NIGHTLY.${{ steps.date.outputs.date }}.zip
+    - name: Print Release Number
+      run: |
+        echo $RELEASE_VERSION
+        echo ${{ env.RELEASE_VERSION }}
+
+    - name: Run tk4-
+      working-directory: /tk4-/
+      run: ./mvs >/dev/null 2>/dev/null &
+
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        repository: 'mainframed/brexx370'
+
+    - name: Move Brexx
+      run: |
+        mkdir -p /brexx370/
+        mv * /brexx370/
+      shell: bash
+
+    - name: Wait for tk4-
+      working-directory: /
+      run: /tk4-/tk4_loaded.sh
+      shell: bash
+
+    - name: Edit Makefile
+      working-directory: /brexx370/build
+      run: |
+        sed -i 's_../../tk4-test/prt/prt00e.txt_/tk4-/prt/prt00e.txt_' Makefile
+        sed -i 's/@$(JCC) $< >> jcc.log 2>&1/$(JCC) $</' Makefile
+        sed -i 's/SLEEP       := 25/SLEEP       := 15/' Makefile
+        sed -i "s/^VERSION.*/VERSION=\"$RELEASE_VERSION\"/" Makefile
+        sed -i 's_/usr/bin/bash_/bin/bash_' rc.sh
+        sed -i "s/^VERSION.*/VERSION=\"$RELEASE_VERSION\"/" release.sh
+        sed -i 's_/usr/bin/bash_/bin/bash_' rc.sh
+      shell: bash
+
+    - name: Make Brexx370
+      working-directory: /brexx370/build
+      run: make
+      shell: bash
+
+    - name: Create XMI/ZIP files
+      working-directory: /brexx370/build
+      run: make release
+      shell: bash
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Nightly Release ${{ steps.date.outputs.date }}
+        body: |
+          Nightly BREXX/370 Release ${{ steps.date.outputs.date }}
+        draft: false
+        prerelease: yes
+
+    - name: Upload Release
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.version_data.outputs.FILENAME_PATH }}
+        asset_name: ${{ steps.version_data.outputs.FILENAME }}
+        asset_content_type: application/zip
