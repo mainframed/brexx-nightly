@@ -33,7 +33,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
       with:
-        repository: 'mainframed/brexx370'
+        repository: 'mvslovers/brexx370'
 
     - name: Move Brexx
       run: |
