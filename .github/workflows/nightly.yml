@@ -17,7 +17,7 @@ jobs:
       run: echo "::set-output name=date::$(date +'%Y%m%d')"
     - name: Get current date and time
       id: datetime
-      run: echo "::set-output name=datetime::$(date +'%Y-%m-%d %H%M%S')"
+      run: echo "::set-output name=datetime::$(date +'%Y-%m-%d-%H%M%S')"
     - name: Set Release Variable
       id: version_data
       run: |
